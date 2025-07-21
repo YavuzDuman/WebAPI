@@ -1,26 +1,29 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.IdentityModel.Tokens.Jwt;
+using WebApi.Entities;
 using WebApi.Entities.Dtos;
 using WebApi.Helpers.Jwt;
 using WebApi.Services.Abstract;
 
 namespace WebApi.Controllers
 {
-	[Authorize]
 	[ApiController]
 	[Route("api/[controller]")]
 	public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
 		private readonly JwtTokenGenerator _jwtTokenGenerator;
+		private readonly DatabaseContext _context;
 
-		public AuthController(IAuthService authService, JwtTokenGenerator jwtTokenGenerator)
+		public AuthController(IAuthService authService, JwtTokenGenerator jwtTokenGenerator, DatabaseContext context)
 		{
 			_authService = authService;
 			_jwtTokenGenerator = jwtTokenGenerator;
+			_context = context;
 		}
 
-		[AllowAnonymous]
 		[HttpPost("login")]
 		public IActionResult Login([FromBody] LoginDto loginUser)
 		{
@@ -50,6 +53,44 @@ namespace WebApi.Controllers
 
 			_authService.RegisterUser(registerUser);
 			return Ok("Kullanıcı başarıyla kaydedildi.");
-		}	
+		}
+
+		[Authorize(Roles = "admin")]
+		[HttpGet("decode")]
+		public IActionResult DecodeToken(string token) {
+			try
+			{
+				var handler = new JwtSecurityTokenHandler();
+				var jwtToken = handler.ReadJwtToken(token);
+
+				var claims = jwtToken.Claims.ToDictionary(c => c.Type, c => c.Value);
+
+				return Ok(new
+				{
+					Header = jwtToken.Header,
+					Payload = claims,
+					Expiration = jwtToken.ValidTo
+				});
+			}
+			catch (Exception ex)
+			{
+				return BadRequest(new { error = "Token geçersiz veya çözülemedi.", detay = ex.Message });
+			}
+		}
+
+		[Authorize(Roles = "admin")]
+		[HttpGet("with-roles")]
+		public async Task<IActionResult> GetUsersWithRoles()
+		{
+			var users = await _context.UsersWithRolesDto
+				.FromSqlRaw("EXEC GetUsersWithRoles")
+				.ToListAsync();
+
+			return Ok(users);
+		}
+
+
+
+
 	}
 }

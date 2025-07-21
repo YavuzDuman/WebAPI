@@ -5,13 +5,13 @@ namespace WebApi.Services.Abstract
 {
 	public interface IUserService
 	{
-		List<User> GetAllUsers();
-		User GetUserById(int id);
+		List<UserDto> GetAllUsers();
+		UserDto GetUserById(int id);
 		void CreateUser(User user);
 		void UpdateUser(int id, User updatedUser);
 		void DeleteUser(int id);
 		void SoftDeleteUserById(int id);
-		List<User> GetAllUsersOrderByDate();
+		List<UserDto> GetAllUsersOrderByDate();
 
 	}
 }

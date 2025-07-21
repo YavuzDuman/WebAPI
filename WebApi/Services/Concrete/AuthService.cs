@@ -1,7 +1,10 @@
-﻿using Microsoft.AspNetCore.Identity;
+﻿using AutoMapper;
+using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using WebApi.Entities;
 using WebApi.Entities.Dtos;
-using WebApi.Helpers;
+using WebApi.Helpers.Hashing;
+using WebApi.Helpers.Mapping;
 using WebApi.Services.Abstract;
 
 namespace WebApi.Services.Concrete
@@ -9,38 +12,27 @@ namespace WebApi.Services.Concrete
 	public class AuthService : IAuthService
 	{
 		private readonly DatabaseContext _context;
+		private readonly IMapper _mapper;
 
-		public AuthService(DatabaseContext context)
+		public AuthService(DatabaseContext context, IMapper mapper)
 		{
 			_context = context;
+			_mapper = mapper;
 		}
 
 		public User LoginUser(LoginDto loginUser)
 		{
-			var user = _context.Users.FirstOrDefault(u => u.Username == loginUser.Username);
+			var user = _context.Users
+				.Include(u => u.Role)
+				.FirstOrDefault(u => u.Username == loginUser.Username && u.Password == PasswordHasher.HashPassword(loginUser.Password));
 			if (user == null) return null;
-			string hashedInputPassword = PasswordHasher.HashPassword(loginUser.Password);
-			if (user.Password == hashedInputPassword)
-			{
-				return user;
-			}
-			else
-			{
-				return null;
-			}
+		
+			return user;
 		}
 
 		public void RegisterUser(RegisterDto dto)
 		{
-			var user = new User
-			{
-				Name = dto.Name,
-				Username = dto.Username,
-				Email = dto.Email,
-				Password = PasswordHasher.HashPassword(dto.Password),
-				InsertDate = DateTime.Now,
-				IsActive = true
-			};
+			var user = _mapper.Map<User>(dto);
 
 			_context.Users.Add(user);
 			_context.SaveChanges();

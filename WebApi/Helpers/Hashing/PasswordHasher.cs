@@ -1,7 +1,7 @@
 ﻿using System.Security.Cryptography;
 using System.Text;
 
-namespace WebApi.Helpers
+namespace WebApi.Helpers.Hashing
 {
 	public static class PasswordHasher
 	{

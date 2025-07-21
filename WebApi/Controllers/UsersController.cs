@@ -19,6 +19,7 @@ namespace WebApi.Controllers
 			_service = service;
 		}
 
+		[Authorize(Roles = "admin")]
 		[HttpGet("getall")]
 		public IActionResult GetAllUsers()
 		{
@@ -35,7 +36,7 @@ namespace WebApi.Controllers
 			return Ok(user);
 		}
 
-		[Authorize(Roles = "1")]
+		[Authorize(Roles = "admin")]
 		[HttpPost("create")]
 		public IActionResult CreateUser(User user)
 		{
@@ -43,7 +44,7 @@ namespace WebApi.Controllers
 			return Ok("Kullanıcı eklendi.");
 		}
 
-		[Authorize(Roles = "1")]
+		[Authorize(Roles = "admin")]
 		[HttpPut("update/{id}")]
 		public IActionResult UpdateUser(int id, User updatedUser)
 		{
@@ -55,7 +56,7 @@ namespace WebApi.Controllers
 			return Ok("Kullanıcı güncellendi.");
 		}
 
-		[Authorize(Roles = "1")]
+		[Authorize(Roles = "admin")]
 		[HttpDelete("delete/{id}")]
 		public IActionResult DeleteUser(int id)
 		{
@@ -74,6 +75,7 @@ namespace WebApi.Controllers
 			return Ok(users);
 		}
 
+		[Authorize(Roles = "admin")]
 		[HttpDelete("soft/{id}")]
 		public IActionResult SoftDeleteUserById(int id)
 		{

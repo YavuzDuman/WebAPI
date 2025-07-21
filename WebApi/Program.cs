@@ -40,11 +40,14 @@ builder.Services.AddSwaggerGen(c =>
 	// 🔒 JWT Token desteği
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
-		In = ParameterLocation.Header,
+		
 		Description = "Token'ı şu formatta girin: Bearer <token>",
 		Name = "Authorization",
-		Type = SecuritySchemeType.ApiKey,
-		Scheme = "Bearer"
+		In = ParameterLocation.Header,
+		Type = SecuritySchemeType.Http,
+		Scheme = "bearer",
+		BearerFormat = "JWT",
+		
 	});
 
 	c.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -62,6 +65,7 @@ builder.Services.AddSwaggerGen(c =>
 		}
 	});
 });
+builder.Services.AddAutoMapper(typeof(Program));
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

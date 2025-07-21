@@ -1,6 +1,8 @@
-﻿using WebApi.Entities;
+﻿using AutoMapper;
+using Microsoft.EntityFrameworkCore;
+using WebApi.Entities;
 using WebApi.Entities.Dtos;
-using WebApi.Helpers;
+using WebApi.Helpers.Hashing;
 using WebApi.Services.Abstract;
 
 namespace WebApi.Services.Concrete
@@ -8,14 +10,19 @@ namespace WebApi.Services.Concrete
 	public class UserService : IUserService
 	{
 		private readonly DatabaseContext _context;
+		private readonly IMapper _mapper;
 
-		public UserService(DatabaseContext context)
+		public UserService(DatabaseContext context, IMapper mapper)
 		{
 			_context = context;
+			_mapper = mapper;
 		}
-		public List<User> GetAllUsers()
+		public List<UserDto> GetAllUsers()
 		{
-			return _context.Users.Where(u=>u.IsActive==true).ToList();
+			var users = _context.Users
+				.Include<User, Role>(u => u.Role)
+				.Where(u => u.IsActive == true).ToList();
+			return _mapper.Map<List<UserDto>>(users);
 		}
 
 		public void CreateUser(User user)
@@ -36,9 +43,12 @@ namespace WebApi.Services.Concrete
 			_context.SaveChanges();
 		}
 
-		public User GetUserById(int id)
+		public UserDto GetUserById(int id)
 		{
-			return _context.Users.FirstOrDefault(u => u.UserId == id && u.IsActive);
+			var user = _context.Users
+				.Include<User, Role>(u => u.Role)
+				.FirstOrDefault(u => u.UserId == id && u.IsActive);
+			return _mapper.Map<UserDto>(user);
 		}
 
 		public void UpdateUser(int id, User updatedUser)
@@ -62,10 +72,12 @@ namespace WebApi.Services.Concrete
 			_context.SaveChanges();
 		}
 
-		public List<User> GetAllUsersOrderByDate()
+		public List<UserDto> GetAllUsersOrderByDate()
 		{
-			var users = _context.Users.Where(u=>u.IsActive).OrderByDescending(u => u.InsertDate).ToList();
-			return users;
+			var users = _context.Users
+				.Include<User, Role>(u => u.Role)
+				.Where(u=>u.IsActive).OrderByDescending(u => u.InsertDate).ToList();
+			return _mapper.Map < List < UserDto>>(users);
 		}
 
 		
