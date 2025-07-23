@@ -1,9 +1,9 @@
 ﻿using WebApi.Entities;
 using WebApi.Entities.Dtos;
 
-namespace WebApi.Services.Abstract
+namespace WebApi.DataAccess.Abstract
 {
-	public interface IAuthService
+	public interface IAuthDal
 	{
 		void RegisterUser(RegisterDto user);
 		User LoginUser(LoginDto user);

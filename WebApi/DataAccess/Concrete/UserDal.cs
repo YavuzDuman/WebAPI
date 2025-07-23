@@ -3,24 +3,25 @@ using Microsoft.EntityFrameworkCore;
 using WebApi.Entities;
 using WebApi.Entities.Dtos;
 using WebApi.Helpers.Hashing;
-using WebApi.Services.Abstract;
+using WebApi.DataAccess.Abstract;
 
-namespace WebApi.Services.Concrete
+namespace WebApi.DataAccess.Concrete
 {
-	public class UserService : IUserService
+	public class UserDal : IUserDal
 	{
 		private readonly DatabaseContext _context;
 		private readonly IMapper _mapper;
 
-		public UserService(DatabaseContext context, IMapper mapper)
+		public UserDal(DatabaseContext context, IMapper mapper)
 		{
 			_context = context;
 			_mapper = mapper;
 		}
-		public List<UserDto> GetAllUsers()
+		public List<UserDto> GetAllUsersWithRoles()
 		{
 			var users = _context.Users
-				.Include<User, Role>(u => u.Role)
+				.Include(u => u.UserRoles)
+				.ThenInclude(ur => ur.Role)
 				.Where(u => u.IsActive == true).ToList();
 			return _mapper.Map<List<UserDto>>(users);
 		}
@@ -42,12 +43,18 @@ namespace WebApi.Services.Concrete
 			_context.Users.Remove(user);
 			_context.SaveChanges();
 		}
+		public User GetById(int id)
+		{
+			var user = _context.Users.FirstOrDefault(u => u.UserId == id);
+			return user ?? throw new KeyNotFoundException($"User with ID {id} not found.");
+		}
 
-		public UserDto GetUserById(int id)
+		public UserDto GetUserByIdWithRoles(int id)
 		{
 			var user = _context.Users
-				.Include<User, Role>(u => u.Role)
-				.FirstOrDefault(u => u.UserId == id && u.IsActive);
+				.Include(u => u.UserRoles)
+				.ThenInclude(ur => ur.Role)
+				.FirstOrDefault(u => u.UserId == id );
 			return _mapper.Map<UserDto>(user);
 		}
 
@@ -64,22 +71,29 @@ namespace WebApi.Services.Concrete
 			_context.SaveChanges();
 		}
 
-		public void SoftDeleteUserById(int id)
+		public List<User> GetAllUsers()
 		{
-			var user = _context.Users.FirstOrDefault(u => u.UserId == id);
-			if (user == null) return;
-			user.IsActive = false;
-			_context.SaveChanges();
+			var users = _context.Users.ToList();
+			return users;
 		}
 
-		public List<UserDto> GetAllUsersOrderByDate()
-		{
-			var users = _context.Users
-				.Include<User, Role>(u => u.Role)
-				.Where(u=>u.IsActive).OrderByDescending(u => u.InsertDate).ToList();
-			return _mapper.Map < List < UserDto>>(users);
-		}
 
-		
+		//public void SoftDeleteUserById(int id)
+		//{
+		//	var user = _context.Users.FirstOrDefault(u => u.UserId == id);
+		//	if (user == null) return;
+		//	user.IsActive = false;
+		//	_context.SaveChanges();
+		//}
+
+		//public List<UserDto> GetAllUsersOrderByDate()
+		//{
+		//	var users = _context.Users
+		//		.Include(u => u.UserRoles)
+		//		.Where(u=>u.IsActive).OrderByDescending(u => u.InsertDate).ToList();
+		//	return _mapper.Map < List < UserDto>>(users);
+		//}
+
+
 	}
 }

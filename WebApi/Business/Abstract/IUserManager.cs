@@ -1,9 +1,9 @@
 ﻿using WebApi.Entities;
 using WebApi.Entities.Dtos;
 
-namespace WebApi.Services.Abstract
+namespace WebApi.Business.Abstract
 {
-	public interface IUserService
+	public interface IUserManager
 	{
 		List<UserDto> GetAllUsers();
 		UserDto GetUserById(int id);

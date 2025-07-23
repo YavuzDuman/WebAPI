@@ -2,8 +2,9 @@
 using Microsoft.AspNetCore.Mvc;
 using WebApi.Entities;
 using WebApi.Entities.Dtos;
-using WebApi.Services;
-using WebApi.Services.Abstract;
+using WebApi.DataAccess;
+using WebApi.DataAccess.Abstract;
+using WebApi.Business.Abstract;
 
 namespace WebApi.Controllers
 {
@@ -12,47 +13,47 @@ namespace WebApi.Controllers
 	[ApiController]
 	public class UsersController : ControllerBase
 	{
-		private readonly IUserService _service;
+		private readonly IUserManager _manager;
 
-		public UsersController(IUserService service)
+		public UsersController(IUserManager manager)
 		{
-			_service = service;
+			_manager = manager;
 		}
 
 		[Authorize(Roles = "admin")]
 		[HttpGet("getall")]
 		public IActionResult GetAllUsers()
 		{
-			var users = _service.GetAllUsers();
+			var users = _manager.GetAllUsers();
 			return Ok(users);
 		}
 
 		[HttpGet("getbyid/{id}")]
 		public IActionResult GetUserById(int id)
 		{
-			var user = _service.GetUserById(id);
+			var user = _manager.GetUserById(id);
 			if (user == null)
 				return NotFound();
 			return Ok(user);
 		}
 
-		[Authorize(Roles = "admin")]
+		[Authorize(Roles = "admin,manager")]
 		[HttpPost("create")]
 		public IActionResult CreateUser(User user)
 		{
-			_service.CreateUser(user);
+			_manager.CreateUser(user);
 			return Ok("Kullanıcı eklendi.");
 		}
 
-		[Authorize(Roles = "admin")]
+		[Authorize(Roles = "admin,manager")]
 		[HttpPut("update/{id}")]
 		public IActionResult UpdateUser(int id, User updatedUser)
 		{
-			var user = _service.GetUserById(id);
+			var user = _manager.GetUserById(id);
 			if (user == null)
 				return NotFound();
 
-			_service.UpdateUser(id, updatedUser);
+			_manager.UpdateUser(id, updatedUser);
 			return Ok("Kullanıcı güncellendi.");
 		}
 
@@ -60,18 +61,18 @@ namespace WebApi.Controllers
 		[HttpDelete("delete/{id}")]
 		public IActionResult DeleteUser(int id)
 		{
-			var user = _service.GetUserById(id);
+			var user = _manager.GetUserById(id);
 			if (user == null)
 				return NotFound();
 
-			_service.DeleteUser(id);
+			_manager.DeleteUser(id);
 			return Ok("Kullanıcı silindi.");
 		}
 
 		[HttpGet("orderbydate")]
 		public IActionResult GetAllUsersOrderByDate()
 		{
-			var users = _service.GetAllUsersOrderByDate();
+			var users = _manager.GetAllUsersOrderByDate();
 			return Ok(users);
 		}
 
@@ -79,10 +80,10 @@ namespace WebApi.Controllers
 		[HttpDelete("soft/{id}")]
 		public IActionResult SoftDeleteUserById(int id)
 		{
-			var user = _service.GetUserById(id);
+			var user = _manager.GetUserById(id);
 			if (user == null)
 				return NotFound();
-			_service.SoftDeleteUserById(id);
+			_manager.SoftDeleteUserById(id);
 			return Ok("Kullanıcı pasif hale getirildi.");
 		}
 

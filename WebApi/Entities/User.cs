@@ -9,7 +9,7 @@
 		public bool IsActive { get; set; }
 		public string Password { get; set; }
 		public DateTime InsertDate { get; set; }
-		public int RoleId { get; set; }
-		public Role Role { get; set; }
+
+		public ICollection<UserRole> UserRoles { get; set; }
 	}
 }

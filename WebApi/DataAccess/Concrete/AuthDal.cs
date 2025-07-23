@@ -5,16 +5,16 @@ using WebApi.Entities;
 using WebApi.Entities.Dtos;
 using WebApi.Helpers.Hashing;
 using WebApi.Helpers.Mapping;
-using WebApi.Services.Abstract;
+using WebApi.DataAccess.Abstract;
 
-namespace WebApi.Services.Concrete
+namespace WebApi.DataAccess.Concrete
 {
-	public class AuthService : IAuthService
+	public class AuthDal : IAuthDal
 	{
 		private readonly DatabaseContext _context;
 		private readonly IMapper _mapper;
 
-		public AuthService(DatabaseContext context, IMapper mapper)
+		public AuthDal(DatabaseContext context, IMapper mapper)
 		{
 			_context = context;
 			_mapper = mapper;
@@ -23,7 +23,8 @@ namespace WebApi.Services.Concrete
 		public User LoginUser(LoginDto loginUser)
 		{
 			var user = _context.Users
-				.Include(u => u.Role)
+				.Include(u => u.UserRoles)
+				.ThenInclude(ur => ur.Role)
 				.FirstOrDefault(u => u.Username == loginUser.Username && u.Password == PasswordHasher.HashPassword(loginUser.Password));
 			if (user == null) return null;
 		

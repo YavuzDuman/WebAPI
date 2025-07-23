@@ -1,11 +1,14 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using StackExchange.Redis;
 using System.Text;
 using WebApi.Entities;
 using WebApi.Helpers.Jwt;
-using WebApi.Services.Abstract;
-using WebApi.Services.Concrete;
+using WebApi.DataAccess.Abstract;
+using WebApi.DataAccess.Concrete;
+using WebApi.Business.Concrete;
+using WebApi.Business.Abstract;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -13,8 +16,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<DatabaseContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserDal, UserDal>();
+builder.Services.AddScoped<IAuthDal, AuthDal>();
+builder.Services.AddScoped<IUserManager, UserManager>();
+
+
+builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
 
 builder.Services.AddScoped<JwtTokenGenerator>();
 
@@ -66,6 +73,14 @@ builder.Services.AddSwaggerGen(c =>
 	});
 });
 builder.Services.AddAutoMapper(typeof(Program));
+
+
+
+IConfiguration configuration = builder.Configuration;
+var redisConnection = ConnectionMultiplexer.Connect(configuration.GetConnectionString("Redis"));
+builder.Services.AddSingleton<IConnectionMultiplexer>(redisConnection);
+
+
 
 builder.Services.AddControllers();
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
