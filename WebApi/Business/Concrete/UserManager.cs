@@ -1,57 +1,66 @@
-﻿using WebApi.Business.Abstract;
+﻿using AutoMapper;
+using WebApi.Business.Abstract;
 using WebApi.DataAccess.Abstract;
-using WebApi.Entities;
-using WebApi.Entities.Dtos;
+using WebApi.Entities.Concrete;
+using WebApi.Entities.Concrete.Dtos;
+using WebApi.Helpers.Hashing;
 
 namespace WebApi.Business.Concrete
 {
 	public class UserManager : IUserManager
 	{
-		private readonly IUserDal _userDal;
+		private readonly IUserRepository _user;
+		private readonly IMapper _mapper;	
 
-		public UserManager(IUserDal userService)
+		public UserManager(IUserRepository userService, IMapper mapper)
 		{
-			_userDal = userService;
+			_user = userService;
+			_mapper = mapper;
 		}
 
 		public List<UserDto> GetAllUsers()
 		{
-			return _userDal.GetAllUsersWithRoles().ToList();
+			var users =  _user.GetAllWithRoles().Where(u=>u.IsActive).ToList();
+			return _mapper.Map<List<UserDto>>(users);
 		}
 		public void CreateUser(User user)
 		{
-			_userDal.CreateUser(user);
+			user.Password = PasswordHasher.HashPassword(user.Password);
+			user.InsertDate = DateTime.Now;
+			user.IsActive = true;
+			_user.Add(user);
 		}
 
 		public void DeleteUser(int id)
 		{
-			_userDal.DeleteUser(id);
+			_user.Delete(id);
 		}
 
 		public List<UserDto> GetAllUsersOrderByDate()
 		{
-			var users = _userDal.GetAllUsersWithRoles().Where(u=> u.IsActive).OrderByDescending(u => u.InsertDate).ToList(); ;
-			return users;
+			var users = _user.GetAllWithRoles().Where(u=> u.IsActive).OrderByDescending(u => u.InsertDate).ToList(); ;
+			return _mapper.Map<List<UserDto>>(users);
 		}
 
 		public UserDto GetUserById(int id)
 		{
-			return _userDal.GetUserByIdWithRoles(id);
+			var user = _user.GetByIdWithRoles(id);
+			return user != null ? _mapper.Map<UserDto>(user) : null;
 		}
 
 		public void SoftDeleteUserById(int id)
 		{
-			var user = _userDal.GetById(id);
+			var user = _user.GetById(id);
 			if (user != null)
 			{
 				user.IsActive = false;
-				_userDal.UpdateUser(id, user);
+				_user.Update(id, user);
 			}
 		}
 
 		public void UpdateUser(int id, User updatedUser)
 		{
-			_userDal.UpdateUser(id, updatedUser);
+			_user.Update(id, updatedUser);
 		}
 	}
 }

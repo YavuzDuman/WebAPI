@@ -14,9 +14,12 @@
       "dotnetRunMessages": true,
       "launchBrowser": true,
       "launchUrl": "swagger",
-      "applicationUrl": "http://localhost:5259",
+      "applicationUrl": "http://localhost:5010",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ConnectionStrings__DefaultConnection": "Server=localhost,1433;Database=StajDb;User=sa;Password=HelloWorld61.;TrustServerCertificate=True;",
+        "Redis__redis": "localhost:6379",
+        "Redis__InstanceName": "WebApi"
       }
     },
     "https": {
@@ -26,7 +29,10 @@
       "launchUrl": "swagger",
       "applicationUrl": "https://localhost:7158;http://localhost:5259",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ConnectionStrings__DefaultConnection": "Server=localhost,1433;Database=StajDb;User=sa;Password=HelloWorld61.;TrustServerCertificate=True;",
+        "Redis__redis": "localhost:6379",
+        "Redis__InstanceName": "WebApi"
       }
     },
     "IIS Express": {
@@ -34,7 +40,10 @@
       "launchBrowser": true,
       "launchUrl": "swagger",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "ConnectionStrings__DefaultConnection": "Server=localhost,1433;Database=StajDb;User=sa;Password=HelloWorld61.;TrustServerCertificate=True;",
+        "Redis__redis": "localhost:6379",
+        "Redis__InstanceName": "WebApi"
       }
     }
   }

@@ -3,28 +3,70 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using StackExchange.Redis;
 using System.Text;
-using WebApi.Entities;
 using WebApi.Helpers.Jwt;
 using WebApi.DataAccess.Abstract;
 using WebApi.DataAccess.Concrete;
 using WebApi.Business.Concrete;
 using WebApi.Business.Abstract;
+using WebApi.DataAccess.Context;
+using WebApi.DataAccess.Redis;
+using Serilog;
+using WebApi.Helpers.Middleware;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Serilog.Events;
+using Serilog.Sinks.MSSqlServer;
 
+// Serilog
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
+Log.Logger = new LoggerConfiguration()
+	.WriteTo.Console()
+	.WriteTo.File("Logs/log-.txt", rollingInterval: RollingInterval.Day)
+	.Filter.ByIncludingOnly(logEvent =>
+	{
+		var isRequestLog = logEvent.Properties.ContainsKey("IsRequestLog");
+		var isError = logEvent.Level == Serilog.Events.LogEventLevel.Error;
+		return isRequestLog || isError;
+	})
+	.WriteTo.MSSqlServer(
+		connectionString: builder.Configuration.GetConnectionString("DefaultConnection"),
+		sinkOptions: new MSSqlServerSinkOptions
+		{
+			TableName = "Logs",
+			AutoCreateSqlTable = true
+		},
+		restrictedToMinimumLevel: LogEventLevel.Information
+	)
+	.Enrich.FromLogContext()
+	.CreateLogger();
+
+builder.Host.UseSerilog();
+
+// DbContext
 builder.Services.AddDbContext<DatabaseContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-builder.Services.AddScoped<IUserDal, UserDal>();
-builder.Services.AddScoped<IAuthDal, AuthDal>();
+builder.Services.AddScoped<IUserRepository, UserRepository>();
+builder.Services.AddScoped<IAuthRepository, AuthRepository>();
 builder.Services.AddScoped<IUserManager, UserManager>();
-
-
-builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
-
 builder.Services.AddScoped<JwtTokenGenerator>();
 
+// REDIS CONNECTION (Docker'daki Redis için: Host adı 'redis')
+builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
+{
+	var config = builder.Configuration.GetSection("Redis")["redis"] ?? "redis:6379";
+	return ConnectionMultiplexer.Connect(config);
+});
+builder.Services.AddSingleton<IRedisCacheService, RedisCacheService>();
+
+// (Opsiyonel) .NET'in IDistributedCache için de Redis register'ı
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+	options.Configuration = builder.Configuration.GetSection("Redis")["redis"];
+	options.InstanceName = builder.Configuration.GetSection("Redis")["InstanceName"];
+});
+
+// JWT Authentication
 builder.Services.AddAuthentication("Bearer")
 	.AddJwtBearer("Bearer", options =>
 	{
@@ -38,25 +80,40 @@ builder.Services.AddAuthentication("Bearer")
 			ValidAudience = builder.Configuration["Jwt:Audience"],
 			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
 		};
+		options.Events = new JwtBearerEvents
+		{
+			OnTokenValidated = context =>
+			{
+				var username = context.Principal.Identity?.Name;
+				Log.Information("Token doğrulandı: Kullanıcı = {Username}", username);
+				return Task.CompletedTask;
+			},
+			OnAuthenticationFailed = context =>
+			{
+				Log.Warning("Token doğrulama başarısız! Hata: {Error}", context.Exception.Message);
+				return Task.CompletedTask;
+			},
+			OnMessageReceived = context =>
+			{
+				Log.Debug("Authorization header alındı: {Token}", context.Token);
+				return Task.CompletedTask;
+			}
+		};
 	});
 
+// Swagger
 builder.Services.AddSwaggerGen(c =>
 {
 	c.SwaggerDoc("v1", new OpenApiInfo { Title = "WebApi", Version = "v1" });
-
-	// 🔒 JWT Token desteği
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
-		
 		Description = "Token'ı şu formatta girin: Bearer <token>",
 		Name = "Authorization",
 		In = ParameterLocation.Header,
 		Type = SecuritySchemeType.Http,
 		Scheme = "bearer",
-		BearerFormat = "JWT",
-		
+		BearerFormat = "JWT"
 	});
-
 	c.AddSecurityRequirement(new OpenApiSecurityRequirement
 	{
 		{
@@ -73,36 +130,36 @@ builder.Services.AddSwaggerGen(c =>
 	});
 });
 builder.Services.AddAutoMapper(typeof(Program));
-
-
-
-IConfiguration configuration = builder.Configuration;
-var redisConnection = ConnectionMultiplexer.Connect(configuration.GetConnectionString("Redis"));
-builder.Services.AddSingleton<IConnectionMultiplexer>(redisConnection);
-
-
-
 builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
-
-// Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+try
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+	using (var scope = app.Services.CreateScope())
+	{
+		var db = scope.ServiceProvider.GetRequiredService<DatabaseContext>();
+		db.Database.Migrate();
+	}
+}
+catch (Exception ex)
+{
+	// Hata logla ama uygulamayı patlatmasın
+	Console.WriteLine("Migration error: " + ex.Message);
 }
 
+// Middleware ve pipeline
+if (app.Environment.IsDevelopment())
+{
+	app.UseSwagger();
+	app.UseSwaggerUI();
+}
+app.UseMiddleware<ExceptionMiddleware>();
+app.UseMiddleware<RequestResponseLoggingMiddleware>();
 app.UseHttpsRedirection();
-
 app.UseAuthentication();
-
 app.UseAuthorization();
-
-
 app.MapControllers();
-
+builder.WebHost.UseUrls("http://0.0.0.0:80");
 app.Run();
+

@@ -1,0 +1,97 @@
+
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: sqlserver
+    environment:
+      SA_PASSWORD: HelloWorld61.
+      ACCEPT_EULA: Y
+    ports:
+      - "1433:1433"
+    networks:
+      - backend
+    volumes:
+      - sqlserverdata:/var/opt/mssql
+
+  redis:
+    image: "redis:alpine"
+    container_name: redis
+    ports:
+      - "6379:6379"
+    networks:
+      - backend
+
+  userapi:
+    build:
+      context: .
+      dockerfile: WebApi/Dockerfile
+    container_name: userapi
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=StajDb;User Id=sa;Password=HelloWorld61.;TrustServerCertificate=True
+      Redis__Configuration: redis:6379
+      Redis__InstanceName: WebApi
+    ports:
+      - "5000:80"
+    depends_on:
+      - sqlserver
+      - redis
+    networks:
+      - backend
+    volumes:
+      - logs:/app/logs
+    restart: always
+
+
+
+  productservice:
+    build:
+      context: .
+      dockerfile: ProductService/Dockerfile
+    container_name: productservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=Northwind;User Id=sa;Password=HelloWorld61.;TrustServerCertificate=True
+    ports:
+      - "5001:80"
+    depends_on:
+      - sqlserver
+    networks:
+      - backend
+
+  orderservice:
+    build:
+      context: .
+      dockerfile: OrderService/Dockerfile
+    container_name: orderservice
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__DefaultConnection: Server=sqlserver;Database=OrderDb;User Id=sa;Password=HelloWorld61.;TrustServerCertificate=True
+    ports:
+      - "5002:80"
+    depends_on:
+      - sqlserver
+    networks:
+      - backend
+
+  apigateway:
+    build:
+      context: .
+      dockerfile: ApiGateway/Dockerfile
+    container_name: apigateway
+    ports:
+      - "9000:80"
+    depends_on:
+      - userapi
+      - productservice
+      - orderservice
+    networks:
+      - backend
+
+networks:
+  backend:
+
+volumes:
+  sqlserverdata:
+  logs:

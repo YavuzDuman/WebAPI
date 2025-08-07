@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
-using WebApi.Entities;
+using WebApi.DataAccess.Context;
 
 #nullable disable
 
@@ -22,29 +22,7 @@ namespace WebApi.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
-            modelBuilder.Entity("WebApi.Entities.Dtos.UserDto", b =>
-                {
-                    b.Property<string>("Email")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("RoleName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("UserId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Username")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.ToTable((string)null);
-
-                    b.ToView(null, (string)null);
-                });
-
-            modelBuilder.Entity("WebApi.Entities.Role", b =>
+            modelBuilder.Entity("WebApi.Entities.Concrete.Role", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -61,7 +39,7 @@ namespace WebApi.Migrations
                     b.ToTable("Roles");
                 });
 
-            modelBuilder.Entity("WebApi.Entities.User", b =>
+            modelBuilder.Entity("WebApi.Entities.Concrete.User", b =>
                 {
                     b.Property<int>("UserId")
                         .ValueGeneratedOnAdd()
@@ -96,7 +74,7 @@ namespace WebApi.Migrations
                     b.ToTable("Users");
                 });
 
-            modelBuilder.Entity("WebApi.Entities.UserRole", b =>
+            modelBuilder.Entity("WebApi.Entities.Concrete.UserRole", b =>
                 {
                     b.Property<int>("UserId")
                         .HasColumnType("int");
@@ -111,15 +89,15 @@ namespace WebApi.Migrations
                     b.ToTable("UserRoles");
                 });
 
-            modelBuilder.Entity("WebApi.Entities.UserRole", b =>
+            modelBuilder.Entity("WebApi.Entities.Concrete.UserRole", b =>
                 {
-                    b.HasOne("WebApi.Entities.Role", "Role")
+                    b.HasOne("WebApi.Entities.Concrete.Role", "Role")
                         .WithMany("UserRoles")
                         .HasForeignKey("RoleId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("WebApi.Entities.User", "User")
+                    b.HasOne("WebApi.Entities.Concrete.User", "User")
                         .WithMany("UserRoles")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
@@ -130,12 +108,12 @@ namespace WebApi.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("WebApi.Entities.Role", b =>
+            modelBuilder.Entity("WebApi.Entities.Concrete.Role", b =>
                 {
                     b.Navigation("UserRoles");
                 });
 
-            modelBuilder.Entity("WebApi.Entities.User", b =>
+            modelBuilder.Entity("WebApi.Entities.Concrete.User", b =>
                 {
                     b.Navigation("UserRoles");
                 });

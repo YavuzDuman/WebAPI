@@ -1,6 +1,6 @@
 ﻿using AutoMapper;
-using WebApi.Entities.Dtos;
-using WebApi.Entities;
+using WebApi.Entities.Concrete;
+using WebApi.Entities.Concrete.Dtos;
 
 namespace WebApi.Helpers.Mapping
 {

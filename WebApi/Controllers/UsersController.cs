@@ -1,14 +1,13 @@
 ﻿using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using WebApi.Entities;
-using WebApi.Entities.Dtos;
 using WebApi.DataAccess;
 using WebApi.DataAccess.Abstract;
 using WebApi.Business.Abstract;
+using WebApi.Entities.Concrete;
 
 namespace WebApi.Controllers
 {
-	[Authorize]
+	//[Authorize]
 	[Route("api/[controller]")]
 	[ApiController]
 	public class UsersController : ControllerBase
@@ -20,7 +19,7 @@ namespace WebApi.Controllers
 			_manager = manager;
 		}
 
-		[Authorize(Roles = "admin")]
+		//[Authorize(Roles = "admin")]
 		[HttpGet("getall")]
 		public IActionResult GetAllUsers()
 		{
@@ -33,11 +32,11 @@ namespace WebApi.Controllers
 		{
 			var user = _manager.GetUserById(id);
 			if (user == null)
-				return NotFound();
+				throw new Exception($"ID {id} ile eşleşen kullanıcı bulunamadı.");
 			return Ok(user);
 		}
 
-		[Authorize(Roles = "admin,manager")]
+		//[Authorize(Roles = "admin,manager")]
 		[HttpPost("create")]
 		public IActionResult CreateUser(User user)
 		{
@@ -87,7 +86,15 @@ namespace WebApi.Controllers
 			return Ok("Kullanıcı pasif hale getirildi.");
 		}
 
-		
+		[Route("api/health")]
+		[ApiController]
+		public class HealthController : ControllerBase
+		{
+			[HttpGet]
+			public IActionResult Get() => Ok("OK");
+		}
+
+
 
 
 	}

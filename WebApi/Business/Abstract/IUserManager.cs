@@ -1,5 +1,5 @@
-﻿using WebApi.Entities;
-using WebApi.Entities.Dtos;
+﻿using WebApi.Entities.Concrete;
+using WebApi.Entities.Concrete.Dtos;
 
 namespace WebApi.Business.Abstract
 {

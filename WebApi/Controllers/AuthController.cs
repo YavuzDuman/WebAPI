@@ -2,12 +2,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.IdentityModel.Tokens.Jwt;
-using WebApi.Entities;
-using WebApi.Entities.Dtos;
 using WebApi.Helpers.Jwt;
 using WebApi.DataAccess.Abstract;
-using WebApi.DataAccess.Concrete;
 using Newtonsoft.Json;
+using WebApi.Entities.Concrete.Dtos;
+using WebApi.DataAccess.Context;
+using WebApi.DataAccess.Redis;
 
 namespace WebApi.Controllers
 {
@@ -15,12 +15,12 @@ namespace WebApi.Controllers
 	[Route("api/[controller]")]
 	public class AuthController : ControllerBase
     {
-        private readonly IAuthDal _authService;
+        private readonly IAuthRepository _authService;
 		private readonly JwtTokenGenerator _jwtTokenGenerator;
 		private readonly DatabaseContext _context;
 		private readonly IRedisCacheService _redisCacheService;
 
-		public AuthController(IAuthDal authService, JwtTokenGenerator jwtTokenGenerator, DatabaseContext context, IRedisCacheService redisCacheService)
+		public AuthController(IAuthRepository authService, JwtTokenGenerator jwtTokenGenerator, DatabaseContext context, IRedisCacheService redisCacheService)
 		{
 			_authService = authService;
 			_jwtTokenGenerator = jwtTokenGenerator;
@@ -35,32 +35,28 @@ namespace WebApi.Controllers
 			if (user == null)
 				return Unauthorized("Kullanıcı adı veya şifre yanlış.");
 
-			var token = _jwtTokenGenerator.GenerateToken(user);
+			var accessToken = _jwtTokenGenerator.GenerateToken(user);
+			var refreshToken = _jwtTokenGenerator.GenerateRefreshToken();
 
-			var session = new LoggedUser
+			var refreshTokenData = new RefreshToken
 			{
 				UserId = user.UserId,
-				Username = user.Username,
-				LoginTime = DateTime.Now,
-				ExpireTime = DateTime.Now.AddMinutes(1)
+				Token = refreshToken,
+				ExpireTime = DateTime.Now.AddHours(1)
 			};
 
-			var success = await _redisCacheService.SetValueAsync(
-				$"logged-user:{user.UserId}",
-				JsonConvert.SerializeObject(session));
-
-			if (!success)
-			{
-			Console.WriteLine("redise yazılamadı.");
-			}
+			await _redisCacheService.SetValueAsync(
+				$"refresh-token:{user.UserId}",
+				JsonConvert.SerializeObject(refreshTokenData),
+				TimeSpan.FromDays(7));
 
 			return Ok(new
 			{
+				accessToken,
+				refreshToken,
 				user.UserId,
-				user.Name,
 				user.Username,
-				user.Email,
-				Token = token
+				user.Email
 			});
 		}
 
@@ -72,6 +68,51 @@ namespace WebApi.Controllers
 
 			_authService.RegisterUser(registerUser);
 			return Ok("Kullanıcı başarıyla kaydedildi.");
+		}
+
+		[HttpPost("refresh-token")]
+		public async Task<IActionResult> RefreshToken([FromBody] RefreshToken model)
+		{
+			if (model == null || string.IsNullOrEmpty(model.Token))
+				return BadRequest("Refresh token boş olamaz.");
+
+			var key = $"refresh-token:{model.UserId}";
+			var savedTokenJson = await _redisCacheService.GetValueAsync(key);
+
+			if (string.IsNullOrEmpty(savedTokenJson))
+				return Unauthorized("Kayıtlı refresh token bulunamadı.");
+
+			var savedToken = JsonConvert.DeserializeObject<RefreshToken>(savedTokenJson);
+
+			if (savedToken.Token != model.Token || savedToken.ExpireTime < DateTime.Now)
+				return Unauthorized("Refresh token geçersiz veya süresi dolmuş.");
+
+			// Kullanıcıyı veritabanından çek
+			var user = await _authService.GetUserByIdAsync(model.UserId);
+			if (user == null)
+				return Unauthorized("Kullanıcı bulunamadı.");
+
+			// Yeni access ve refresh token üret
+			var newAccessToken = _jwtTokenGenerator.GenerateToken(user);
+			var newRefreshToken = _jwtTokenGenerator.GenerateRefreshToken();
+
+			var newTokenData = new RefreshToken
+			{
+				UserId = user.UserId,
+				Token = newRefreshToken,
+				ExpireTime = DateTime.Now.AddDays(7)
+			};
+
+			await _redisCacheService.SetValueAsync(
+				key,
+				JsonConvert.SerializeObject(newTokenData),
+				TimeSpan.FromDays(7));
+
+			return Ok(new
+			{
+				accessToken = newAccessToken,
+				refreshToken = newRefreshToken
+			});
 		}
 
 		[Authorize(Roles = "admin")]
@@ -125,7 +166,18 @@ namespace WebApi.Controllers
 		public async Task<IActionResult> Logout(int userId)
 		{
 			await _redisCacheService.Clear($"logged-user:{userId}");
-			return Ok("çıkış yapıldı");
+			await _redisCacheService.Clear($"refresh-token:{userId}");
+			return Ok("Çıkış yapıldı ve tokenlar temizlendi.");
+		}
+
+		[HttpGet("getuserwithroles")]
+		public async Task<IActionResult> GetUsersByRole(string roleName)
+		{
+			var result = await _context.Set<UserDto>()
+				.FromSqlInterpolated($"EXEC GetUsersWithRoleName @RoleName={roleName}")
+				.ToListAsync();
+
+			return Ok(result);
 		}
 
 
