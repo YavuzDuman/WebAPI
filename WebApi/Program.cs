@@ -15,6 +15,16 @@ using WebApi.Helpers.Middleware;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Serilog.Events;
 using Serilog.Sinks.MSSqlServer;
+using FluentValidation;
+using WebApi.Helpers.Validator;
+using FluentValidation.AspNetCore;
+using WebApi.Entities.Concrete;
+using Microsoft.AspNetCore.Authorization;
+using WebApi.Helpers.Authorization;
+using WebApi.Helpers.Swagger;
+using WebApi.Helpers.Hashing;
+using AutoMapper;
+using WebApi.Entities.Concrete.Dtos;
 
 // Serilog
 var builder = WebApplication.CreateBuilder(args);
@@ -46,10 +56,22 @@ builder.Host.UseSerilog();
 builder.Services.AddDbContext<DatabaseContext>(options =>
 	options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// HASHING SERVİSİ
+builder.Services.AddScoped<PasswordHasher>();
+
+// REPOSITORYLER
 builder.Services.AddScoped<IUserRepository, UserRepository>();
 builder.Services.AddScoped<IAuthRepository, AuthRepository>();
+builder.Services.AddScoped<IRepository<UserRole>, EfRepository<UserRole>>();
+builder.Services.AddScoped<IRepository<WebApi.Entities.Concrete.Role>, EfRepository<WebApi.Entities.Concrete.Role>>();
+
+// MANAGER'LAR
 builder.Services.AddScoped<IUserManager, UserManager>();
+builder.Services.AddScoped<IAuthManager, AuthManager>();
+
+// DİĞER SERVİSLER
 builder.Services.AddScoped<JwtTokenGenerator>();
+
 
 // REDIS CONNECTION (Docker'daki Redis için: Host adı 'redis')
 builder.Services.AddSingleton<IConnectionMultiplexer>(sp =>
@@ -67,44 +89,76 @@ builder.Services.AddStackExchangeRedisCache(options =>
 });
 
 // JWT Authentication
-builder.Services.AddAuthentication("Bearer")
-	.AddJwtBearer("Bearer", options =>
+builder.Services
+	.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+	.AddJwtBearer(options =>
 	{
+		// Prod’da açık tut (http ile test ediyorsan dev’de false yapabilirsin)
+		options.RequireHttpsMetadata = true;
+		options.SaveToken = false;                 // token’ı server tarafında saklama
+		options.IncludeErrorDetails = false;       // hata detaylarını sızdırma (dev’de true olabilir)
+
 		options.TokenValidationParameters = new TokenValidationParameters
 		{
-			ValidateIssuer = true,
-			ValidateAudience = true,
-			ValidateLifetime = true,
 			ValidateIssuerSigningKey = true,
+			IssuerSigningKey = new SymmetricSecurityKey(
+				Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"])),
+
+			ValidateIssuer = true,
 			ValidIssuer = builder.Configuration["Jwt:Issuer"],
+
+			ValidateAudience = true,
 			ValidAudience = builder.Configuration["Jwt:Audience"],
-			IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+
+			ValidateLifetime = true,
+			RequireExpirationTime = true,
+			ClockSkew = TimeSpan.Zero,             // 5 dk toleransı kapat
 		};
+
+		// Güvenli event’ler (token’ı asla loglama)
 		options.Events = new JwtBearerEvents
 		{
-			OnTokenValidated = context =>
+			OnTokenValidated = ctx =>
 			{
-				var username = context.Principal.Identity?.Name;
-				Log.Information("Token doğrulandı: Kullanıcı = {Username}", username);
+				var name = ctx.Principal?.Identity?.Name ?? "-";
+				Log.Information("JWT doğrulandı (user={User})", name);
 				return Task.CompletedTask;
 			},
-			OnAuthenticationFailed = context =>
+			OnAuthenticationFailed = ctx =>
 			{
-				Log.Warning("Token doğrulama başarısız! Hata: {Error}", context.Exception.Message);
+				Log.Warning("JWT doğrulama başarısız: {Error}", ctx.Exception.Message);
 				return Task.CompletedTask;
 			},
-			OnMessageReceived = context =>
+			// Token’ı loglama: güvenlik nedeniyle kapattık
+			OnMessageReceived = ctx =>
 			{
-				Log.Debug("Authorization header alındı: {Token}", context.Token);
+				// İstersen burada custom “Authorization: Bearer” dışı bir taşıma kuralı uygularsın.
 				return Task.CompletedTask;
 			}
 		};
 	});
 
+// KAYNAK BAZLI YETKİLENDİRME (Resource-Based Authorization) AYARLARI
+builder.Services.AddAuthorization(options =>
+{
+	// "CanManageSelf" adında yeni bir yetkilendirme politikası tanımla.
+	options.AddPolicy("CanManageSelf", policy =>
+	{
+		policy.Requirements.Add(new OwnerAuthorizationRequirement());
+	});
+});
+
+// Authorization Handler'ı Dependency Injection'a kaydet.
+builder.Services.AddSingleton<IAuthorizationHandler, OwnerAuthorizationHandler>();
+
 // Swagger
 builder.Services.AddSwaggerGen(c =>
 {
 	c.SwaggerDoc("v1", new OpenApiInfo { Title = "WebApi", Version = "v1" });
+
+	// YENİ EKLENEN SATIR: Swagger filtresini ekle.
+	c.OperationFilter<SwaggerAuthorizedOperationFilter>();
+
 	c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
 	{
 		Description = "Token'ı şu formatta girin: Bearer <token>",
@@ -130,7 +184,16 @@ builder.Services.AddSwaggerGen(c =>
 	});
 });
 builder.Services.AddAutoMapper(typeof(Program));
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+	.AddFluentValidation(fv =>
+	{
+		// Validatörleri otomatik olarak bul ve kaydet
+		fv.RegisterValidatorsFromAssemblyContaining<Program>();
+
+		// Eğer isterseniz Data Annotation validasyonunu kapatabilirsiniz
+		fv.DisableDataAnnotationsValidation = false; // varsayılan
+	});
+
 builder.Services.AddEndpointsApiExplorer();
 
 var app = builder.Build();
@@ -162,4 +225,3 @@ app.UseAuthorization();
 app.MapControllers();
 builder.WebHost.UseUrls("http://0.0.0.0:80");
 app.Run();
-

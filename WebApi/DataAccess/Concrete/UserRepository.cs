@@ -9,23 +9,19 @@ namespace WebApi.DataAccess.Concrete
 {
 	public class UserRepository : EfRepository<User>, IUserRepository
 	{
-		public UserRepository(DatabaseContext context) : base(context) { }
+		private readonly DatabaseContext _db;
+		public UserRepository(DatabaseContext context) : base(context) => _db = context;
 
-		public List<User> GetAllWithRoles()
-		{
-			var users = _context.Users
-				.Include(u => u.UserRoles)
-				.ThenInclude(ur => ur.Role).ToList();
-			return users;
-		}
+		public Task<List<User>> GetAllWithRolesAsync(CancellationToken ct = default)
+			=> _db.Users
+				  .Include(u => u.UserRoles)
+				  .ThenInclude(ur => ur.Role)
+				  .ToListAsync(ct);
 
-		public User GetByIdWithRoles(int id)
-		{
-			var user = _context.Users
-				.Include(u => u.UserRoles)
-				.ThenInclude(ur => ur.Role)
-				.FirstOrDefault(u => u.UserId == id );
-			return user;
-		}
+		public Task<User?> GetByIdWithRolesAsync(int id, CancellationToken ct = default)
+			=> _db.Users
+				  .Include(u => u.UserRoles)
+				  .ThenInclude(ur => ur.Role)
+				  .FirstOrDefaultAsync(u => u.UserId == id, ct);
 	}
 }

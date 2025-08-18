@@ -13,6 +13,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OrderService", "OrderServic
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ApiGateway", "ApiGateway\ApiGateway.csproj", "{F4FDE159-044C-4636-812E-6C0E5234F592}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "StockService", "StockService\StockService.csproj", "{C9727C35-6FDB-4276-887B-C9B5142B231D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PortfolioService", "PortfolioService\PortfolioService.csproj", "{FF5D32D4-5D3E-458E-BA0B-A2B7C776844B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -35,6 +39,14 @@ Global
 		{F4FDE159-044C-4636-812E-6C0E5234F592}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{F4FDE159-044C-4636-812E-6C0E5234F592}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{F4FDE159-044C-4636-812E-6C0E5234F592}.Release|Any CPU.Build.0 = Release|Any CPU
+		{C9727C35-6FDB-4276-887B-C9B5142B231D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{C9727C35-6FDB-4276-887B-C9B5142B231D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{C9727C35-6FDB-4276-887B-C9B5142B231D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{C9727C35-6FDB-4276-887B-C9B5142B231D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FF5D32D4-5D3E-458E-BA0B-A2B7C776844B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FF5D32D4-5D3E-458E-BA0B-A2B7C776844B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FF5D32D4-5D3E-458E-BA0B-A2B7C776844B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FF5D32D4-5D3E-458E-BA0B-A2B7C776844B}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

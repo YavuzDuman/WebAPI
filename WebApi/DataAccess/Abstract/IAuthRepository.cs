@@ -5,8 +5,10 @@ namespace WebApi.DataAccess.Abstract
 {
 	public interface IAuthRepository
 	{
-		void RegisterUser(RegisterDto user);
-		User LoginUser(LoginDto user);
-		Task<User> GetUserByIdAsync(int userId);
+		Task<User?> LoginUserAsync(LoginDto loginUser, CancellationToken ct = default);
+		Task RegisterUserAsync(RegisterDto dto, CancellationToken ct = default);
+		Task<User?> GetUserByIdAsync(int userId, CancellationToken ct = default);
+
+		Task<bool> ExistsByUsernameOrEmailAsync(string username, string email, CancellationToken ct = default);
 	}
 }

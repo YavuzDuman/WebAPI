@@ -51,11 +51,13 @@ namespace WebApi.Helpers.Jwt
 
 		public string GenerateRefreshToken()
 		{
-			var randomNumber = new byte[32];
+			var randomNumber = new byte[256];
 			using var rng = RandomNumberGenerator.Create();
 			rng.GetBytes(randomNumber);
 			return Convert.ToBase64String(randomNumber);
 		}
+
+
 
 	}
 }

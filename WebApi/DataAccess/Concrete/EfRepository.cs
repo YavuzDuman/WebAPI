@@ -1,4 +1,5 @@
-﻿using WebApi.DataAccess.Abstract;
+﻿using Microsoft.EntityFrameworkCore;
+using WebApi.DataAccess.Abstract;
 using WebApi.DataAccess.Context;
 using WebApi.Entities.Abstract;
 
@@ -7,43 +8,35 @@ namespace WebApi.DataAccess.Concrete
 	public class EfRepository<T> : IRepository<T> where T : class, IEntity, new()
 	{
 		protected readonly DatabaseContext _context;
+		public EfRepository(DatabaseContext context) => _context = context;
 
-		public EfRepository(DatabaseContext context)
+		public async Task AddAsync(T entity, CancellationToken ct = default)
 		{
-			_context = context;
+			await _context.Set<T>().AddAsync(entity, ct);
+			await _context.SaveChangesAsync(ct);
 		}
 
-		public void Add(T entity)
+		public async Task DeleteAsync(int id, CancellationToken ct = default)
 		{
-			_context.Set<T>().Add(entity);
-			_context.SaveChanges();
-		}
-
-		public void Delete(int id)
-		{
-			var entity = _context.Set<T>().Find(id);
-			if (entity == null) return;
+			var entity = await _context.Set<T>().FindAsync([id], ct);
+			if (entity is null) return;
 			_context.Set<T>().Remove(entity);
-			_context.SaveChanges();
+			await _context.SaveChangesAsync(ct);
 		}
 
-		public List<T> GetAll()
-		{
-			return _context.Set<T>().ToList();
-		}
+		public Task<List<T>> GetAllAsync(CancellationToken ct = default)
+			=> _context.Set<T>().ToListAsync(ct);
 
-		public T GetById(int id)
-		{
-			return _context.Set<T>().Find(id);
-		}
+		public async Task<T?> GetByIdAsync(int id, CancellationToken ct = default)
+			=> await _context.Set<T>().FindAsync([id], ct);
 
-		public void Update(int id, T entity)
+		public async Task UpdateAsync(int id, T entity, CancellationToken ct = default)
 		{
-			var existing = _context.Set<T>().Find(id);
-			if (existing == null) return;
-
+			var existing = await _context.Set<T>().FindAsync([id], ct);
+			if (existing is null) return;
 			_context.Entry(existing).CurrentValues.SetValues(entity);
-			_context.SaveChanges();
+			await _context.SaveChangesAsync(ct);
 		}
 	}
+
 }

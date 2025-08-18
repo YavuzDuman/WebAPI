@@ -3,64 +3,119 @@ using WebApi.Business.Abstract;
 using WebApi.DataAccess.Abstract;
 using WebApi.Entities.Concrete;
 using WebApi.Entities.Concrete.Dtos;
+using WebApi.Entities.Enums;
 using WebApi.Helpers.Hashing;
 
 namespace WebApi.Business.Concrete
 {
 	public class UserManager : IUserManager
 	{
-		private readonly IUserRepository _user;
-		private readonly IMapper _mapper;	
+		private readonly IUserRepository _userRepo;
+		private readonly IMapper _mapper;
+		private readonly IRepository<UserRole> _userRoleRepo;
+		private readonly IRepository<Role> _roleRepo;
+		private readonly PasswordHasher _passwordHasher;
 
-		public UserManager(IUserRepository userService, IMapper mapper)
+		public UserManager(IUserRepository userRepository, IMapper mapper,IRepository<UserRole> userRoleRepository,IRepository<Role> roleRepository, PasswordHasher passwordHasher)
 		{
-			_user = userService;
+			_userRepo = userRepository;
+			_userRoleRepo = userRoleRepository;
+			_roleRepo = roleRepository;
 			_mapper = mapper;
+			_passwordHasher = passwordHasher;
 		}
 
-		public List<UserDto> GetAllUsers()
+		public async Task<List<UserDto>> GetAllUsersAsync(CancellationToken ct = default)
 		{
-			var users =  _user.GetAllWithRoles().Where(u=>u.IsActive).ToList();
-			return _mapper.Map<List<UserDto>>(users);
+			var users = await _userRepo.GetAllWithRolesAsync(ct);
+			return _mapper.Map<List<UserDto>>(users.Where(u => u.IsActive));
 		}
-		public void CreateUser(User user)
+
+		public async Task<List<UserDto>> GetAllUsersOrderByDateAsync(CancellationToken ct = default)
 		{
-			user.Password = PasswordHasher.HashPassword(user.Password);
+			var users = await _userRepo.GetAllWithRolesAsync(ct);
+			return _mapper.Map<List<UserDto>>(users.Where(u => u.IsActive)
+												   .OrderByDescending(u => u.InsertDate)
+												   .ToList());
+		}
+
+		public async Task<UserDto?> GetUserByIdAsync(int id, CancellationToken ct = default)
+		{
+			var user = await _userRepo.GetByIdWithRolesAsync(id, ct);
+			return user is null ? null : _mapper.Map<UserDto>(user);
+		}
+
+		public async Task CreateUserAsync(User user, CancellationToken ct = default)
+		{
+			user.Password = _passwordHasher.HashPassword(user.Password); // şimdilik mevcut hasher
 			user.InsertDate = DateTime.Now;
 			user.IsActive = true;
-			_user.Add(user);
+			await _userRepo.AddAsync(user, ct);
 		}
 
-		public void DeleteUser(int id)
-		{
-			_user.Delete(id);
-		}
+		public async Task UpdateUserAsync(int id, User updatedUser, CancellationToken ct = default)
+			=> await _userRepo.UpdateAsync(id, updatedUser, ct);
 
-		public List<UserDto> GetAllUsersOrderByDate()
-		{
-			var users = _user.GetAllWithRoles().Where(u=> u.IsActive).OrderByDescending(u => u.InsertDate).ToList(); ;
-			return _mapper.Map<List<UserDto>>(users);
-		}
+		public async Task DeleteUserAsync(int id, CancellationToken ct = default)
+			=> await _userRepo.DeleteAsync(id, ct);
 
-		public UserDto GetUserById(int id)
+		public async Task SoftDeleteUserByIdAsync(int id, CancellationToken ct = default)
 		{
-			var user = _user.GetByIdWithRoles(id);
-			return user != null ? _mapper.Map<UserDto>(user) : null;
+			var user = await _userRepo.GetByIdAsync(id, ct);
+			if (user is null) return;
+			user.IsActive = false;
+			await _userRepo.UpdateAsync(id, user, ct);
 		}
-
-		public void SoftDeleteUserById(int id)
+		public async Task AddUserToRoleAsync(int userId, RoleType roleType, CancellationToken ct = default)
 		{
-			var user = _user.GetById(id);
-			if (user != null)
+			var user = await _userRepo.GetByIdWithRolesAsync(userId, ct);
+			if (user == null)
+				throw new Exception("Kullanıcı bulunamadı.");
+			var roleName = roleType.ToString();
+			var role = (await _roleRepo.GetAllAsync(ct)).FirstOrDefault(r => r.Name == roleName);
+			if(role == null)
+				throw new Exception($"Rol '{roleName}' bulunamadı.");
+			var existingUserRole = user.UserRoles?.FirstOrDefault(ur => ur.RoleId == role.Id);
+			if (existingUserRole == null)
 			{
-				user.IsActive = false;
-				_user.Update(id, user);
+				var newUserRole = new UserRole { UserId = userId, RoleId = role.Id };
+				await _userRoleRepo.AddAsync(newUserRole, ct);
+			}
+			else
+			{
+				throw new Exception($"Kullanıcı zaten '{roleName}' rolüne sahip.");
 			}
 		}
 
-		public void UpdateUser(int id, User updatedUser)
+		public async Task RemoveUserFromRoleAsync(int userId, RoleType roleType, CancellationToken ct = default)
 		{
-			_user.Update(id, updatedUser);
+			var user = await _userRepo.GetByIdWithRolesAsync(userId, ct);
+			if (user == null)
+				throw new Exception("Kullanıcı bulunamadı.");
+
+			var roleName = roleType.ToString();
+			var role = (await _roleRepo.GetAllAsync(ct)).FirstOrDefault(r => r.Name == roleName);
+			if (role == null)
+				throw new Exception($"Rol '{roleName}' bulunamadı.");
+
+			var userRoleToDelete = user.UserRoles?.FirstOrDefault(ur => ur.RoleId == role.Id);
+			if (userRoleToDelete != null)
+			{
+				await _userRoleRepo.DeleteAsync(userRoleToDelete.UserId, ct);
+			}
 		}
+
+		public async Task<bool> IsUserInRoleAsync(int userId, RoleType roleType, CancellationToken ct = default)
+		{
+			var user = await _userRepo.GetByIdWithRolesAsync(userId, ct);
+			if (user == null)
+				return false;
+
+			var roleName = roleType.ToString();
+			return user.UserRoles?.Any(ur => ur.Role.Name == roleName) ?? false;
+		}
+
 	}
+
 }
+

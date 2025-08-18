@@ -4,98 +4,103 @@ using WebApi.DataAccess;
 using WebApi.DataAccess.Abstract;
 using WebApi.Business.Abstract;
 using WebApi.Entities.Concrete;
+using WebApi.Entities.Concrete.Dtos;
+using AutoMapper;
 
 namespace WebApi.Controllers
 {
-	//[Authorize]
-	[Route("api/[controller]")]
 	[ApiController]
+	[Route("api/[controller]")]
 	public class UsersController : ControllerBase
 	{
 		private readonly IUserManager _manager;
-
-		public UsersController(IUserManager manager)
+		private readonly IAuthorizationService _authService;
+		private readonly IMapper _mapper;
+		public UsersController(IUserManager manager, IAuthorizationService authorizationService, IMapper mapper)
 		{
 			_manager = manager;
+			_authService = authorizationService;
+			_mapper = mapper;
 		}
 
-		//[Authorize(Roles = "admin")]
-		[HttpGet("getall")]
-		public IActionResult GetAllUsers()
-		{
-			var users = _manager.GetAllUsers();
-			return Ok(users);
-		}
+		// GET /api/users
+		// Tüm kullanıcıları getirir. Metot ismi daha sade hale getirildi.
+		[HttpGet]
+		public async Task<IActionResult> GetAll(CancellationToken ct)
+			=> Ok(await _manager.GetAllUsersAsync(ct));
 
-		[HttpGet("getbyid/{id}")]
-		public IActionResult GetUserById(int id)
+		// GET /api/users/orderbydate
+		[HttpGet("orderbydate")]
+		public async Task<IActionResult> GetAllOrderByDate(CancellationToken ct)
+			=> Ok(await _manager.GetAllUsersOrderByDateAsync(ct));
+
+		// GET /api/users/{id}
+		[HttpGet("{id}")]
+		public async Task<IActionResult> GetById(int id, CancellationToken ct)
 		{
-			var user = _manager.GetUserById(id);
-			if (user == null)
-				throw new Exception($"ID {id} ile eşleşen kullanıcı bulunamadı.");
+			var user = await _manager.GetUserByIdAsync(id, ct);
+			if (user == null) return NotFound($"ID {id} ile eşleşen kullanıcı bulunamadı.");
 			return Ok(user);
 		}
 
-		//[Authorize(Roles = "admin,manager")]
-		[HttpPost("create")]
-		public IActionResult CreateUser(User user)
+		// POST /api/users
+		[HttpPost]
+		public async Task<IActionResult> Create([FromBody] User user, CancellationToken ct)
 		{
-			_manager.CreateUser(user);
+			await _manager.CreateUserAsync(user, ct);
 			return Ok("Kullanıcı eklendi.");
 		}
 
-		[Authorize(Roles = "admin,manager")]
-		[HttpPut("update/{id}")]
-		public IActionResult UpdateUser(int id, User updatedUser)
+		[HttpPut("{id}")]
+		public async Task<IActionResult> Update(int id, [FromBody] UserDto updatedUserDto, CancellationToken ct)
 		{
-			var user = _manager.GetUserById(id);
-			if (user == null)
-				return NotFound();
+			var existingUser = await _manager.GetUserByIdAsync(id, ct);
+			if (existingUser == null)
+			{
+				return NotFound($"ID {id} ile eşleşen kullanıcı bulunamadı.");
+			}
 
-			_manager.UpdateUser(id, updatedUser);
+			// Yetkilendirme kontrolü: 'CanManageSelf' politikası, bu kaynak (existingUser) üzerinde uygulanır.
+			var authorizationResult = await _authService.AuthorizeAsync(User, _mapper.Map<User>(existingUser), "CanManageSelf");
+			if (!authorizationResult.Succeeded)
+			{
+				return Forbid();
+			}
+
+			// Yetkilendirme başarılıysa, güncelleme işlemini gerçekleştir.
+			await _manager.UpdateUserAsync(id, _mapper.Map<User>(updatedUserDto), ct);
 			return Ok("Kullanıcı güncellendi.");
 		}
 
-		[Authorize(Roles = "admin")]
-		[HttpDelete("delete/{id}")]
-		public IActionResult DeleteUser(int id)
+		[HttpDelete("{id}")]
+		public async Task<IActionResult> Delete(int id, CancellationToken ct)
 		{
-			var user = _manager.GetUserById(id);
-			if (user == null)
-				return NotFound();
+			var existingUser = await _manager.GetUserByIdAsync(id, ct);
+			if (existingUser == null)
+			{
+				return NotFound($"ID {id} ile eşleşen kullanıcı bulunamadı.");
+			}
 
-			_manager.DeleteUser(id);
+			var authorizationResult = await _authService.AuthorizeAsync(User, _mapper.Map<User>(existingUser), "CanManageSelf");
+			if (!authorizationResult.Succeeded)
+			{
+				return Forbid();
+			}
+
+			await _manager.DeleteUserAsync(id, ct);
 			return Ok("Kullanıcı silindi.");
 		}
 
-		[HttpGet("orderbydate")]
-		public IActionResult GetAllUsersOrderByDate()
-		{
-			var users = _manager.GetAllUsersOrderByDate();
-			return Ok(users);
-		}
-
+		// DELETE /api/users/soft/{id}
 		[Authorize(Roles = "admin")]
 		[HttpDelete("soft/{id}")]
-		public IActionResult SoftDeleteUserById(int id)
+		public async Task<IActionResult> SoftDelete(int id, CancellationToken ct)
 		{
-			var user = _manager.GetUserById(id);
-			if (user == null)
-				return NotFound();
-			_manager.SoftDeleteUserById(id);
+			var existing = await _manager.GetUserByIdAsync(id, ct);
+			if (existing == null) return NotFound();
+			await _manager.SoftDeleteUserByIdAsync(id, ct);
 			return Ok("Kullanıcı pasif hale getirildi.");
 		}
-
-		[Route("api/health")]
-		[ApiController]
-		public class HealthController : ControllerBase
-		{
-			[HttpGet]
-			public IActionResult Get() => Ok("OK");
-		}
-
-
-
-
 	}
+
 }

@@ -1,17 +1,20 @@
 ﻿using WebApi.Entities.Concrete;
 using WebApi.Entities.Concrete.Dtos;
+using WebApi.Entities.Enums;
 
 namespace WebApi.Business.Abstract
 {
 	public interface IUserManager
 	{
-		List<UserDto> GetAllUsers();
-		UserDto GetUserById(int id);
-		void CreateUser(User user);
-		void UpdateUser(int id, User updatedUser);
-		void DeleteUser(int id);
-		void SoftDeleteUserById(int id);
-		List<UserDto> GetAllUsersOrderByDate();
-
+		Task<List<UserDto>> GetAllUsersAsync(CancellationToken ct = default);
+		Task<UserDto?> GetUserByIdAsync(int id, CancellationToken ct = default);
+		Task CreateUserAsync(User user, CancellationToken ct = default);
+		Task UpdateUserAsync(int id, User updatedUser, CancellationToken ct = default);
+		Task DeleteUserAsync(int id, CancellationToken ct = default);
+		Task<List<UserDto>> GetAllUsersOrderByDateAsync(CancellationToken ct = default);
+		Task SoftDeleteUserByIdAsync(int id, CancellationToken ct = default);
+		Task AddUserToRoleAsync(int userId, RoleType roleType, CancellationToken ct = default);
+		Task RemoveUserFromRoleAsync(int userId, RoleType roleType, CancellationToken ct = default);
+		Task<bool> IsUserInRoleAsync(int userId, RoleType roleType, CancellationToken ct = default);
 	}
 }

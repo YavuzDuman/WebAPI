@@ -4,7 +4,7 @@ namespace WebApi.DataAccess.Abstract
 {
 	public interface IUserRepository : IRepository<User>
 	{
-		User GetByIdWithRoles(int id);
-		List<User> GetAllWithRoles();
+		Task<List<User>> GetAllWithRolesAsync(CancellationToken ct = default);
+		Task<User?> GetByIdWithRolesAsync(int id, CancellationToken ct = default);
 	}
 }
