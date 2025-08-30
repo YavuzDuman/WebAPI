@@ -190,8 +190,7 @@ builder.Services.AddControllers()
 		// Validatörleri otomatik olarak bul ve kaydet
 		fv.RegisterValidatorsFromAssemblyContaining<Program>();
 
-		// Eğer isterseniz Data Annotation validasyonunu kapatabilirsiniz
-		fv.DisableDataAnnotationsValidation = false; // varsayılan
+		fv.DisableDataAnnotationsValidation = false; 
 	});
 
 builder.Services.AddEndpointsApiExplorer();

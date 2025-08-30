@@ -1,7 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore.Storage;
-using StackExchange.Redis;
+﻿using StackExchange.Redis;
 
-namespace WebApi.DataAccess.Redis
+namespace StockService.DataAccess.Redis
 {
 	public class RedisCacheService : IRedisCacheService
 	{
@@ -12,20 +11,6 @@ namespace WebApi.DataAccess.Redis
 		{
 			_redisConnection = redisConnection;
 			_cache = redisConnection.GetDatabase();
-		}
-		public async Task<string> GetValueAsync(string key)
-		{
-			return await _cache.StringGetAsync(key);
-		}
-
-		public async Task<bool> SetValueAsync(string key, string value)
-		{
-			return await _cache.StringSetAsync(key, value, TimeSpan.FromMinutes(1));
-		}
-
-		public async Task<bool> SetValueAsync(string key, string value, TimeSpan expiration)
-		{
-			return await _cache.StringSetAsync(key, value, expiration);
 		}
 
 		public async Task Clear(string key)
@@ -41,6 +26,21 @@ namespace WebApi.DataAccess.Redis
 				var redisServer = _redisConnection.GetServer(redisEndpoint);
 				redisServer.FlushAllDatabases();
 			}
+		}
+
+		public async Task<string> GetValueAsync(string key)
+		{
+			return await _cache.StringGetAsync(key);
+		}
+
+		public async Task<bool> SetValueAsync(string key, string value)
+		{
+			return await _cache.StringSetAsync(key, value, TimeSpan.FromMinutes(1));
+		}
+
+		public async Task<bool> SetValueAsync(string key, string value, TimeSpan expiration)
+		{
+			return await _cache.StringSetAsync(key, value, expiration);
 		}
 	}
 }
